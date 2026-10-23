@@ -1,0 +1,98 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '4.1.1'
+    id 'io.spring.dependency-management' version '1.1.7'
+    id 'com.google.protobuf' version '0.9.6'
+    id 'nu.studer.jooq' version '10.2.1'
+}
+
+group = 'zpi.project_bird'
+version = '0.0.1-SNAPSHOT'
+description = 'backend'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation platform('software.amazon.awssdk:bom:2.57.2')
+    implementation 'org.springframework.boot:spring-boot-starter-amqp'
+    implementation 'org.springframework.boot:spring-boot-starter-batch'
+    implementation 'org.springframework.boot:spring-boot-starter-batch-jdbc'
+    implementation 'org.springframework.boot:spring-boot-starter-grpc-client'
+    implementation 'org.springframework.boot:spring-boot-starter-jooq'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-session-data-redis'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+    implementation 'org.jobrunr:jobrunr-spring-boot-4-starter:9.0.0'
+    implementation 'org.locationtech.jts:jts-core:1.20.0'
+    implementation 'org.locationtech.jts.io:jts-io-common:1.20.0'
+    implementation 'org.springframework.amqp:spring-rabbit-stream'
+    implementation 'software.amazon.awssdk:sqs'
+    implementation 'software.amazon.awssdk:url-connection-client'
+    runtimeOnly 'org.postgresql:postgresql'
+    jooqGenerator 'org.postgresql:postgresql'
+    testImplementation 'org.springframework.boot:spring-boot-starter-amqp-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-batch-jdbc-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-batch-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-grpc-client-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-jooq-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-session-data-redis-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-websocket-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+protobuf {
+    plugins {
+        grpc {}
+    }
+}
+
+jooq {
+    version = ''
+    configurations {
+        main {
+            generateSchemaSourceOnCompilation = false
+            generationTool {
+                jdbc {
+                    driver = 'org.postgresql.Driver'
+                    url = System.getenv('SPRING_DATASOURCE_URL') ?: 'jdbc:postgresql://localhost:5432/app'
+                    user = System.getenv('SPRING_DATASOURCE_USERNAME') ?: 'app'
+                    password = System.getenv('SPRING_DATASOURCE_PASSWORD') ?: 'app'
+                }
+                generator {
+                    database {
+                        name = 'org.jooq.meta.postgres.PostgresDatabase'
+                        inputSchema = 'public'
+                        forcedTypes {
+                            forcedType {
+                                name = 'VARCHAR'
+                                userType = 'org.locationtech.jts.geom.Geometry'
+                                binding = 'zpi.project_bird.backend.jooq.binding.PostgisGeometryBinding'
+                                includeTypes = '(?i:geometry)'
+                            }
+                        }
+                    }
+                    target {
+                        packageName = 'zpi.project_bird.backend.jooq'
+                        directory = 'src/generated/java'
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: backend
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/app
+    username: app
+    password: app
+
+  data:
+    redis:
+      url: "${REDIS_URL:redis://localhost:6379}"
+
+  session:
+    timeout: 30d
+    data:
+      redis:
+        namespace: "bird:sessions"
+
+  jooq:
+    sql-dialect: POSTGRES
+
+  grpc:
+    client:
+      channel:
+        downloader:
+          target: "${DOWNLOADER_GRPC_TARGET:static://localhost:9090}"
+          ssl:
+            enabled: ${DOWNLOADER_GRPC_TLS:false}
+
+server:
+  servlet:
+    session:
+      cookie:
+        name: SESSION
+        max-age: 120d
+        http-only: true
+        secure: ${SESSION_COOKIE_SECURE:true}
+        same-site: lax
