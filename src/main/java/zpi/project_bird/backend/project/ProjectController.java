@@ -46,8 +46,9 @@ public class ProjectController {
     @GetMapping("/{projectId}/features")
     @CanViewOrganization
     public List<Feature> getFeatures(
-            @PathVariable UUID organizationId,
-            @PathVariable UUID projectId) {
+        @PathVariable UUID organizationId,
+        @PathVariable UUID projectId
+    ) {
         return projectService.getFeatures(projectId);
     }
 
@@ -74,8 +75,9 @@ public class ProjectController {
     @DeleteMapping("/{projectId}")
     @CanManageOrganization
     public ResponseEntity<Void> delete(
-            @PathVariable UUID organizationId,
-            @PathVariable UUID projectId) {
+        @PathVariable UUID organizationId,
+        @PathVariable UUID projectId
+    ) {
         projectService.delete(organizationId, projectId);
         return ResponseEntity.noContent().build();
     }

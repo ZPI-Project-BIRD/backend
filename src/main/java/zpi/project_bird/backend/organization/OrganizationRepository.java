@@ -19,6 +19,18 @@ public class OrganizationRepository {
         this.dsl = dsl;
     }
 
+    public List<Membership> findByUsername(String username) {
+        return dsl.select(ORGANIZATIONS.ID, ORGANIZATIONS.NAME, MEMBERSHIPS.ROLE)
+            .from(ORGANIZATIONS)
+            .join(MEMBERSHIPS).on(MEMBERSHIPS.ORGANIZATION_ID.eq(ORGANIZATIONS.ID))
+            .join(USERS).on(USERS.ID.eq(MEMBERSHIPS.USER_ID))
+            .where(USERS.USERNAME.eq(username))
+            .orderBy(ORGANIZATIONS.ID)
+            .fetch(record -> new Membership(
+                new Organization(record.get(ORGANIZATIONS.ID),record.get(ORGANIZATIONS.NAME)),
+                record.get(MEMBERSHIPS.ROLE)));
+    }
+
     public List<Organization> findOwnedByUsername(String username) {
         return dsl.select(ORGANIZATIONS.ID, ORGANIZATIONS.NAME)
             .from(ORGANIZATIONS)

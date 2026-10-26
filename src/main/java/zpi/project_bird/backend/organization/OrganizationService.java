@@ -14,6 +14,11 @@ public class OrganizationService {
     }
 
     @Transactional(readOnly = true)
+    public List<Membership> findByUsername(String username) {
+        return organizations.findByUsername(username);
+    }
+
+    @Transactional(readOnly = true)
     public List<Organization> findOwnedByUsername(String username) {
         return organizations.findOwnedByUsername(username);
     }

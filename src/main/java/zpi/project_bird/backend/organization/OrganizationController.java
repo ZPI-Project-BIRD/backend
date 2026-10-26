@@ -16,6 +16,11 @@ public class OrganizationController {
         this.organizationService = organizationService;
     }
 
+    @GetMapping("/my")
+    public List<Membership> findMyOrganizations(Authentication authentication) {
+        return organizationService.findByUsername(authentication.getName());
+    }
+
     @GetMapping("/owned")
     public List<Organization> findOwned(Authentication authentication) {
         return organizationService.findOwnedByUsername(authentication.getName());
