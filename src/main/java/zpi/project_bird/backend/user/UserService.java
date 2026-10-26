@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import zpi.project_bird.backend.jooq.enums.MembershipRole;
+import zpi.project_bird.backend.jooq.public_.enums.MembershipRole;
 
 @Service
 public class UserService {

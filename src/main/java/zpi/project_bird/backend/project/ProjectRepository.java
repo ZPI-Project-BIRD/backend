@@ -1,6 +1,8 @@
 package zpi.project_bird.backend.project;
 
-import static zpi.project_bird.backend.jooq.tables.Projects.PROJECTS;
+import static zpi.project_bird.backend.jooq.public_.tables.Projects.PROJECTS;
+import static zpi.project_bird.backend.jooq.geoportal.tables.Features.FEATURES;
+import static zpi.project_bird.backend.jooq.geoportal.tables.ProjectFeatures.PROJECT_FEATURES;
 
 import java.util.List;
 import java.util.Optional;
@@ -14,7 +16,8 @@ import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.stereotype.Repository;
 
-import zpi.project_bird.backend.jooq.tables.records.ProjectsRecord;
+import zpi.project_bird.backend.jooq.geoportal.tables.records.FeaturesRecord;
+import zpi.project_bird.backend.jooq.public_.tables.records.ProjectsRecord;
 
 @Repository
 public class ProjectRepository {
@@ -40,6 +43,14 @@ public class ProjectRepository {
                 PROJECTS.ORGANIZATION_ID.eq(organizationId),
                 PROJECTS.ID.eq(projectId))
             .fetchOptional(this::toProject);
+    }
+
+    public List<Feature> getFeatures(UUID projectId) {
+        return dsl.select(FEATURES.fields())
+            .from(FEATURES)
+            .innerJoin(PROJECT_FEATURES).on(FEATURES.ID.eq(PROJECT_FEATURES.FEATURE_ID))
+            .where(PROJECT_FEATURES.PROJECT_ID.eq(projectId))
+            .fetch(record -> toFeature(record.into(FEATURES)));
     }
 
     public Project create(
@@ -73,6 +84,17 @@ public class ProjectRepository {
             record.getOrganizationId(),
             toCoordinates(record.getTopLeft()),
             toCoordinates(record.getBottomRight()));
+    }
+
+    private Feature toFeature(FeaturesRecord record) {
+        return new Feature(
+            record.getId(),
+            record.getColorSpace(),
+            record.getPixelSize(),
+            record.getSourceUrl(),
+            record.getObjectName(),
+            record.getFileSize()
+        );
     }
 
     private static Point toGeometry(Project.Coordinates coordinates) {

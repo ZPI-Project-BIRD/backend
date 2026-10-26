@@ -20,13 +20,8 @@ spring:
   jooq:
     sql-dialect: POSTGRES
 
-  grpc:
-    client:
-      channel:
-        downloader:
-          target: "${DOWNLOADER_GRPC_TARGET:static://localhost:9090}"
-          ssl:
-            enabled: ${DOWNLOADER_GRPC_TLS:false}
+downloader:
+  feature-discovery-function-name: "${FEATURE_DISCOVERY_FUNCTION_NAME:feature-discovery}"
 
 server:
   servlet:

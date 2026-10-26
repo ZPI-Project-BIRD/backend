@@ -2,7 +2,6 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '4.1.1'
     id 'io.spring.dependency-management' version '1.1.7'
-    id 'com.google.protobuf' version '0.9.6'
     id 'nu.studer.jooq' version '10.2.1'
 }
 
@@ -25,7 +24,6 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-amqp'
     implementation 'org.springframework.boot:spring-boot-starter-batch'
     implementation 'org.springframework.boot:spring-boot-starter-batch-jdbc'
-    implementation 'org.springframework.boot:spring-boot-starter-grpc-client'
     implementation 'org.springframework.boot:spring-boot-starter-jooq'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-session-data-redis'
@@ -36,6 +34,7 @@ dependencies {
     implementation 'org.locationtech.jts:jts-core:1.20.0'
     implementation 'org.locationtech.jts.io:jts-io-common:1.20.0'
     implementation 'org.springframework.amqp:spring-rabbit-stream'
+    implementation 'software.amazon.awssdk:lambda'
     implementation 'software.amazon.awssdk:sqs'
     implementation 'software.amazon.awssdk:url-connection-client'
     runtimeOnly 'org.postgresql:postgresql'
@@ -43,7 +42,6 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-amqp-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-batch-jdbc-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-batch-test'
-    testImplementation 'org.springframework.boot:spring-boot-starter-grpc-client-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-jooq-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-session-data-redis-test'
@@ -54,12 +52,6 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
-}
-
-protobuf {
-    plugins {
-        grpc {}
-    }
 }
 
 jooq {
@@ -77,7 +69,14 @@ jooq {
                 generator {
                     database {
                         name = 'org.jooq.meta.postgres.PostgresDatabase'
-                        inputSchema = 'public'
+                        schemata {
+                            schema {
+                                inputSchema = 'public'
+                            }
+                            schema {
+                                inputSchema = 'geoportal'
+                            }
+                        }
                         forcedTypes {
                             forcedType {
                                 name = 'VARCHAR'

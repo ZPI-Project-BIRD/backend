@@ -39,16 +39,20 @@ public class ProjectService {
             .orElseThrow(() -> notFound(projectId));
     }
 
+    @Transactional(readOnly = true)
+    public List<Feature> getFeatures(UUID projectId) {
+        return projects.getFeatures(projectId);
+    }
+
     public Project create(
         UUID organizationId,
         String name,
-        String layer,
         Project.Coordinates topLeft,
         Project.Coordinates bottomRight
     ) {
         Project project = Objects.requireNonNull(transactions.execute(status ->
             projects.create(organizationId, name, topLeft, bottomRight)));
-        downloaderClient.createDownload(project.id(), layer);
+        downloaderClient.discoverFeatures(project.id());
 
         return project;
     }

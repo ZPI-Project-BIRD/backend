@@ -1,15 +1,15 @@
 package zpi.project_bird.backend.organization;
 
-import static zpi.project_bird.backend.jooq.tables.Memberships.MEMBERSHIPS;
-import static zpi.project_bird.backend.jooq.tables.Organizations.ORGANIZATIONS;
-import static zpi.project_bird.backend.jooq.tables.Users.USERS;
+import static zpi.project_bird.backend.jooq.public_.tables.Memberships.MEMBERSHIPS;
+import static zpi.project_bird.backend.jooq.public_.tables.Organizations.ORGANIZATIONS;
+import static zpi.project_bird.backend.jooq.public_.tables.Users.USERS;
 
 import java.util.List;
 
 import org.jooq.DSLContext;
 import org.springframework.stereotype.Repository;
 
-import zpi.project_bird.backend.jooq.enums.MembershipRole;
+import zpi.project_bird.backend.jooq.public_.enums.MembershipRole;
 
 @Repository
 public class OrganizationRepository {

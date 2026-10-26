@@ -1,7 +1,7 @@
 package zpi.project_bird.backend.user;
 
-import static zpi.project_bird.backend.jooq.tables.Memberships.MEMBERSHIPS;
-import static zpi.project_bird.backend.jooq.tables.Users.USERS;
+import static zpi.project_bird.backend.jooq.public_.tables.Memberships.MEMBERSHIPS;
+import static zpi.project_bird.backend.jooq.public_.tables.Users.USERS;
 
 import java.util.List;
 import java.util.Optional;
@@ -11,8 +11,8 @@ import org.jooq.DSLContext;
 import org.jooq.Record;
 import org.springframework.stereotype.Repository;
 
-import zpi.project_bird.backend.jooq.enums.MembershipRole;
-import zpi.project_bird.backend.jooq.tables.records.UsersRecord;
+import zpi.project_bird.backend.jooq.public_.enums.MembershipRole;
+import zpi.project_bird.backend.jooq.public_.tables.records.UsersRecord;
 
 @Repository
 public class UserRepository {

@@ -7,9 +7,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
-import zpi.project_bird.backend.jooq.tables.records.UsersRecord;
+import zpi.project_bird.backend.jooq.public_.tables.records.UsersRecord;
 
-import static zpi.project_bird.backend.jooq.tables.Users.USERS;
+import static zpi.project_bird.backend.jooq.public_.tables.Users.USERS;
 
 @Service
 public class ApplicationUserDetailsService implements UserDetailsService {

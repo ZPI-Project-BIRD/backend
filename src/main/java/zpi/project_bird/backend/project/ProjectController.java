@@ -43,6 +43,14 @@ public class ProjectController {
         return projectService.findById(organizationId, projectId);
     }
 
+    @GetMapping("/{projectId}/features")
+    @CanViewOrganization
+    public List<Feature> getFeatures(
+            @PathVariable UUID organizationId,
+            @PathVariable UUID projectId) {
+        return projectService.getFeatures(projectId);
+    }
+
     @PostMapping
     @CanEditOrganization
     public ResponseEntity<Project> create(
@@ -52,7 +60,6 @@ public class ProjectController {
         Project project = projectService.create(
             organizationId,
             request.name(),
-            request.layer(),
             request.topLeft().toProjectCoordinates(),
             request.bottomRight().toProjectCoordinates());
 

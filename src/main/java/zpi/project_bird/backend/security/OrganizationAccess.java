@@ -5,10 +5,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.stereotype.Component;
-import zpi.project_bird.backend.jooq.enums.MembershipRole;
+import zpi.project_bird.backend.jooq.public_.enums.MembershipRole;
 
-import static zpi.project_bird.backend.jooq.Tables.MEMBERSHIPS;
-import static zpi.project_bird.backend.jooq.tables.Users.USERS;
+import static zpi.project_bird.backend.jooq.public_.Tables.MEMBERSHIPS;
+import static zpi.project_bird.backend.jooq.public_.tables.Users.USERS;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

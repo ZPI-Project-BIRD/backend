@@ -3,7 +3,7 @@ package zpi.project_bird.backend.user;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
-import zpi.project_bird.backend.jooq.enums.MembershipRole;
+import zpi.project_bird.backend.jooq.public_.enums.MembershipRole;
 
 public enum OrganizationRole {
     VIEWER(MembershipRole._1_VIEWER),

@@ -1,44 +1,41 @@
 package zpi.project_bird.backend.downloader;
 
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import zpi.project_bird.backend.downloader.v1.*;
+import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.services.lambda.LambdaClient;
+import software.amazon.awssdk.services.lambda.model.InvocationType;
+import software.amazon.awssdk.services.lambda.model.InvokeRequest;
+import software.amazon.awssdk.services.lambda.model.InvokeResponse;
 
 @Service
 public class DownloaderClient {
-    private final DownloaderServiceGrpc.DownloaderServiceBlockingStub downloader;
+    private final LambdaClient lambda;
+    private final String featureDiscoveryFunctionName;
 
     public DownloaderClient(
-        DownloaderServiceGrpc.DownloaderServiceBlockingStub downloader) {
-        this.downloader = downloader;
+            LambdaClient lambda,
+            @Value("${downloader.feature-discovery-function-name}")
+            String featureDiscoveryFunctionName) {
+        this.lambda = lambda;
+        this.featureDiscoveryFunctionName = featureDiscoveryFunctionName;
     }
 
-    public CreateDownloadResponse createDownload(UUID projectId, String layer) {
-        CreateDownloadRequest request = CreateDownloadRequest.newBuilder()
-            .setProjectId(projectId.toString())
-            .setLayer(layer)
+    public void discoverFeatures(UUID projectId) {
+        InvokeRequest request = InvokeRequest.builder()
+            .functionName(featureDiscoveryFunctionName)
+            .invocationType(InvocationType.REQUEST_RESPONSE)
+            .payload(SdkBytes.fromUtf8String("{\"ProjectID\":\"%s\"}".formatted(projectId)))
             .build();
 
-        return downloader
-            .withDeadlineAfter(10, TimeUnit.SECONDS)
-            .createDownload(request);
-    }
+        InvokeResponse response = lambda.invoke(request);
 
-    public RetryFeatureResponse.Action retryFeature(
-        UUID projectId,
-        UUID featureId
-    ) {
-        RetryFeatureRequest request = RetryFeatureRequest.newBuilder()
-            .setProjectId(projectId.toString())
-            .setFeatureId(featureId.toString())
-            .build();
-
-        return downloader
-            .withDeadlineAfter(10, TimeUnit.SECONDS)
-            .retryFeature(request)
-            .getAction();
+        if (response.functionError() != null) {
+            String errorPayload = response.payload() == null ? "": ": " + response.payload().asUtf8String();
+            throw new IllegalStateException("Feature discovery failed%s".formatted(errorPayload));
+        }
     }
 }
