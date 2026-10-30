@@ -6,7 +6,6 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,16 +35,6 @@ public class UserController {
     @PreAuthorize("hasRole('ADMIN')")
     public List<User> findAllWithoutOrganization() {
         return userService.findAllWithoutOrganization();
-    }
-
-    @PostMapping("/organizations/{organizationId}/users")
-    @CanManageOrganization
-    public ResponseEntity<CreatedUser> createInOrganization(
-            @PathVariable UUID organizationId,
-            @Valid @RequestBody UserRequest.CreateInOrganization request,
-            Authentication authentication) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-            .body(userService.createInOrganization(organizationId, request, authentication));
     }
 
     @PostMapping("/organizations/null/users")
