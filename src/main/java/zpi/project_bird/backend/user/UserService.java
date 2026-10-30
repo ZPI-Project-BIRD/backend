@@ -38,16 +38,13 @@ public class UserService {
     }
 
     @Transactional
-    public CreatedUser createInOrganization(
+    public CreatedUser createAccount(
             UUID organizationId,
             UserRequest.CreateInOrganization request,
             Authentication creator) {
-        MembershipRole role = request.membershipRole().toMembershipRole();
-        if (role == MembershipRole._4_OWNER && !isGlobalAdmin(creator)) {
-            throw new ResponseStatusException(
-                HttpStatus.FORBIDDEN,
-                "Only global administrators can create organization owners");
-        }
+        MembershipRole role = isGlobalAdmin(creator)
+            ? request.membershipRole().toMembershipRole()
+            : MembershipRole._1_VIEWER;
 
         String password = passwordGenerator.generate();
         User user = users.createInOrganization(
@@ -85,6 +82,15 @@ public class UserService {
     }
 
     @Transactional
+    public CurrentUser updateFullName(
+            UUID organizationId,
+            String username,
+            String fullName) {
+        return users.updateFullName(organizationId, username, fullName)
+            .orElseThrow(UserService::organizationUserNotFound);
+    }
+
+    @Transactional
     public void updatePassword(
             String username,
             String currentPassword,
@@ -102,6 +108,19 @@ public class UserService {
         }
     }
 
+    @Transactional
+    public void updatePassword(
+            UUID organizationId,
+            String username,
+            String newPassword) {
+        if (!users.updatePassword(
+                organizationId,
+                username,
+                passwordEncoder.encode(newPassword))) {
+            throw organizationUserNotFound();
+        }
+    }
+
     private static boolean isGlobalAdmin(Authentication authentication) {
         return authentication != null && authentication.getAuthorities().stream()
             .anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"));
@@ -111,5 +130,11 @@ public class UserService {
         return new ResponseStatusException(
             HttpStatus.UNAUTHORIZED,
             "Authenticated user no longer exists");
+    }
+
+    private static ResponseStatusException organizationUserNotFound() {
+        return new ResponseStatusException(
+            HttpStatus.NOT_FOUND,
+            "User is not a member of this organization");
     }
 }

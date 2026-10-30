@@ -97,11 +97,27 @@ public class UserRepository {
                 USERS.FRIENDLY_NAME,
                 USERS.USERNAME,
                 USERS.IS_ADMIN)
-            .fetchOptional(record -> new CurrentUser(
-                record.get(USERS.ID),
-                record.get(USERS.FRIENDLY_NAME),
-                record.get(USERS.USERNAME),
-                record.get(USERS.IS_ADMIN)));
+            .fetchOptional(UserRepository::toCurrentUser);
+    }
+
+    public Optional<CurrentUser> updateFullName(
+            UUID organizationId,
+            String username,
+            String fullName) {
+        return dsl.update(USERS)
+            .set(USERS.FRIENDLY_NAME, fullName)
+            .where(USERS.USERNAME.eq(username))
+            .andExists(
+                dsl.selectOne()
+                    .from(MEMBERSHIPS)
+                    .where(MEMBERSHIPS.USER_ID.eq(USERS.ID))
+                    .and(MEMBERSHIPS.ORGANIZATION_ID.eq(organizationId)))
+            .returning(
+                USERS.ID,
+                USERS.FRIENDLY_NAME,
+                USERS.USERNAME,
+                USERS.IS_ADMIN)
+            .fetchOptional(UserRepository::toCurrentUser);
     }
 
     public Optional<String> findPasswordHash(String username) {
@@ -115,6 +131,21 @@ public class UserRepository {
         return dsl.update(USERS)
             .set(USERS.PASSWORD_HASH, passwordHash)
             .where(USERS.USERNAME.eq(username))
+            .execute() == 1;
+    }
+
+    public boolean updatePassword(
+            UUID organizationId,
+            String username,
+            String passwordHash) {
+        return dsl.update(USERS)
+            .set(USERS.PASSWORD_HASH, passwordHash)
+            .where(USERS.USERNAME.eq(username))
+            .andExists(
+                dsl.selectOne()
+                    .from(MEMBERSHIPS)
+                    .where(MEMBERSHIPS.USER_ID.eq(USERS.ID))
+                    .and(MEMBERSHIPS.ORGANIZATION_ID.eq(organizationId)))
             .execute() == 1;
     }
 
@@ -141,5 +172,13 @@ public class UserRepository {
             record.get(USERS.BANNED_AT),
             record.get(USERS.BAN_REASON),
             membershipRole == null ? null : membershipRole.getLiteral());
+    }
+
+    private static CurrentUser toCurrentUser(Record record) {
+        return new CurrentUser(
+            record.get(USERS.ID),
+            record.get(USERS.FRIENDLY_NAME),
+            record.get(USERS.USERNAME),
+            record.get(USERS.IS_ADMIN));
     }
 }
