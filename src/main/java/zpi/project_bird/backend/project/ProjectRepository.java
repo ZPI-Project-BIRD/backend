@@ -1,14 +1,22 @@
 package zpi.project_bird.backend.project;
 
 import static zpi.project_bird.backend.jooq.public_.tables.Projects.PROJECTS;
+import static zpi.project_bird.backend.jooq.geoportal.tables.Detections.DETECTIONS;
 import static zpi.project_bird.backend.jooq.geoportal.tables.Features.FEATURES;
 import static zpi.project_bird.backend.jooq.geoportal.tables.ProjectFeatures.PROJECT_FEATURES;
+import static zpi.project_bird.backend.jooq.geoportal.tables.RecognitionJobs.RECOGNITION_JOBS;
+import static zpi.project_bird.backend.jooq.geoportal.enums.RecognitionJobStatus._2_FINISHED;
+import static org.jooq.impl.DSL.count;
+import static org.jooq.impl.DSL.exists;
+import static org.jooq.impl.DSL.selectOne;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import org.jooq.DSLContext;
+import org.jooq.JSONB;
+import org.jooq.Record3;
 import org.locationtech.jts.geom.CoordinateXY;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -53,6 +61,45 @@ public class ProjectRepository {
             .fetch(record -> toFeature(record.into(FEATURES)));
     }
 
+    public ProjectProgress getProgress(UUID projectId) {
+        Record3<Integer, Integer, Integer> counts = dsl.select(
+                count(),
+                count().filterWhere(FEATURES.DOWNLOADED_AT.isNotNull()),
+                count().filterWhere(exists(
+                    selectOne()
+                        .from(RECOGNITION_JOBS)
+                        .where(
+                            RECOGNITION_JOBS.PROJECT_ID.eq(projectId),
+                            RECOGNITION_JOBS.FEATURE_ID.eq(PROJECT_FEATURES.FEATURE_ID),
+                            RECOGNITION_JOBS.STATUS.eq(_2_FINISHED)))))
+            .from(PROJECT_FEATURES)
+            .innerJoin(FEATURES).on(FEATURES.ID.eq(PROJECT_FEATURES.FEATURE_ID))
+            .where(PROJECT_FEATURES.PROJECT_ID.eq(projectId))
+            .fetchSingle();
+
+        return ProjectProgress.fromCounts(
+            counts.value1(),
+            counts.value2(),
+            counts.value3());
+    }
+
+    public List<FeatureDetections> getDetections(UUID projectId) {
+        return dsl.select(RECOGNITION_JOBS.FEATURE_ID, DETECTIONS.ID, DETECTIONS.RECOGNITION_JOB_ID, DETECTIONS.BOUNDS)
+            .from(DETECTIONS)
+            .innerJoin(RECOGNITION_JOBS).on(RECOGNITION_JOBS.ID.eq(DETECTIONS.RECOGNITION_JOB_ID))
+            .where(RECOGNITION_JOBS.PROJECT_ID.eq(projectId))
+            .orderBy(RECOGNITION_JOBS.FEATURE_ID, DETECTIONS.ID)
+            .fetchGroups(
+                RECOGNITION_JOBS.FEATURE_ID,
+                record -> new FeatureDetections.Detection(
+                    record.get(DETECTIONS.ID),
+                    record.get(DETECTIONS.RECOGNITION_JOB_ID),
+                    toJson(record.get(DETECTIONS.BOUNDS))))
+            .entrySet().stream()
+            .map(entry -> new FeatureDetections(entry.getKey(), entry.getValue()))
+            .toList();
+    }
+
     public Project create(
             UUID organizationId,
             String name,
@@ -95,6 +142,10 @@ public class ProjectRepository {
             record.getObjectName(),
             record.getFileSize()
         );
+    }
+
+    private static String toJson(JSONB json) {
+        return json == null ? null : json.data();
     }
 
     private static Point toGeometry(Project.Coordinates coordinates) {
