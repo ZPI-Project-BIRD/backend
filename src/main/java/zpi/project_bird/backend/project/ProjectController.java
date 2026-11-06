@@ -43,6 +43,24 @@ public class ProjectController {
         return projectService.findById(organizationId, projectId);
     }
 
+    @GetMapping("/{projectId}/progress")
+    @CanViewOrganization
+    public ProjectProgress getProgress(
+        @PathVariable UUID organizationId,
+        @PathVariable UUID projectId
+    ) {
+        return projectService.getProgress(organizationId, projectId);
+    }
+
+    @GetMapping("/{projectId}/detections")
+    @CanViewOrganization
+    public List<FeatureDetections> getDetections(
+        @PathVariable UUID organizationId,
+        @PathVariable UUID projectId
+    ) {
+        return projectService.getDetections(organizationId, projectId);
+    }
+
     @GetMapping("/{projectId}/features")
     @CanViewOrganization
     public List<Feature> getFeatures(

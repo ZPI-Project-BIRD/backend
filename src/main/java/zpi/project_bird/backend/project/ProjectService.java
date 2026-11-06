@@ -40,6 +40,18 @@ public class ProjectService {
     }
 
     @Transactional(readOnly = true)
+    public ProjectProgress getProgress(UUID organizationId, UUID projectId) {
+        findById(organizationId, projectId);
+        return projects.getProgress(projectId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<FeatureDetections> getDetections(UUID organizationId, UUID projectId) {
+        findById(organizationId, projectId);
+        return projects.getDetections(projectId);
+    }
+
+    @Transactional(readOnly = true)
     public List<Feature> getFeatures(UUID projectId) {
         return projects.getFeatures(projectId);
     }
