@@ -11,6 +11,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.security.core.Authentication;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
 import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
@@ -23,6 +28,29 @@ public class UserController {
 
     public UserController(UserService userService) {
         this.userService = userService;
+    }
+
+    @GetMapping("/users")
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<User> search(@RequestParam(defaultValue = "") String search,
+            @RequestParam(defaultValue = "100") @Min(1) @Max(500) int limit,
+            @RequestParam(defaultValue = "0") @Min(0) int offset) {
+        return userService.search(search, limit, offset);
+    }
+
+    @PostMapping("/users/{userId}/ban")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> ban(@PathVariable UUID userId,
+            @Valid @RequestBody UserRequest.Ban request, Authentication authentication) {
+        userService.ban(userId, request.reason(), authentication.getName());
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/users/{userId}/ban")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> unban(@PathVariable UUID userId) {
+        userService.unban(userId);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/organizations/{organizationId}/users")

@@ -18,6 +18,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
+import zpi.project_bird.backend.user.UserRepository;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
@@ -34,7 +36,8 @@ public class SecurityConfiguration {
             HttpSecurity http,
             SecurityContextRepository securityContextRepository,
             ApiAuthenticationEntryPoint authenticationEntryPoint,
-            ApiAccessDeniedHandler accessDeniedHandler) throws Exception {
+            ApiAccessDeniedHandler accessDeniedHandler,
+            UserRepository users) throws Exception {
         return http
             .cors(Customizer.withDefaults())
             .csrf(csrf -> csrf
@@ -44,6 +47,7 @@ public class SecurityConfiguration {
                 .securityContextRepository(securityContextRepository))
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+            .addFilterBefore(new AccountStatusFilter(users), AuthorizationFilter.class)
             .authorizeHttpRequests(requests -> requests
                 .requestMatchers("/api/auth/csrf", "/api/auth/login").permitAll()
                 .anyRequest().authenticated())

@@ -11,20 +11,49 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import zpi.project_bird.backend.jooq.public_.enums.MembershipRole;
+import zpi.project_bird.backend.organization.OrganizationService;
 
 @Service
 public class UserService {
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
     private final RandomPasswordGenerator passwordGenerator;
+    private final OrganizationService organizations;
 
     public UserService(
             UserRepository users,
             PasswordEncoder passwordEncoder,
-            RandomPasswordGenerator passwordGenerator) {
+            RandomPasswordGenerator passwordGenerator,
+            OrganizationService organizations) {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.passwordGenerator = passwordGenerator;
+        this.organizations = organizations;
+    }
+
+    @Transactional(readOnly = true)
+    public List<User> search(String search, int limit, int offset) {
+        return users.search(search.strip(), limit, offset);
+    }
+
+    @Transactional
+    public void ban(UUID userId, String reason, String administrator) {
+        var admins = users.lockAdministrators();
+        var target = users.lock(userId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User was not found"));
+        if (target.getUsername().equals(administrator)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Administrators cannot ban themselves");
+        }
+        if (target.getBannedAt() != null) return;
+        if (target.getIsAdmin() && admins.stream().filter(user -> user.getBannedAt() == null).count() <= 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "The last active global administrator cannot be banned");
+        }
+        users.setBan(userId, reason.strip());
+    }
+
+    @Transactional
+    public void unban(UUID userId) {
+        var target = users.lock(userId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User was not found"));
+        if (target.getBannedAt() != null) users.setBan(userId, null);
     }
 
     @Transactional(readOnly = true)
@@ -42,9 +71,9 @@ public class UserService {
             UUID organizationId,
             UserRequest.CreateInOrganization request,
             Authentication creator) {
-        MembershipRole role = isGlobalAdmin(creator)
-            ? request.membershipRole().toMembershipRole()
-            : MembershipRole._1_VIEWER;
+        organizations.lock(organizationId);
+        OrganizationService.requireOwnerAssignmentAuthority(request.membershipRole(), creator);
+        MembershipRole role = request.membershipRole().toMembershipRole();
 
         String password = passwordGenerator.generate();
         User user = users.createInOrganization(
@@ -119,11 +148,6 @@ public class UserService {
                 passwordEncoder.encode(newPassword))) {
             throw organizationUserNotFound();
         }
-    }
-
-    private static boolean isGlobalAdmin(Authentication authentication) {
-        return authentication != null && authentication.getAuthorities().stream()
-            .anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"));
     }
 
     private static ResponseStatusException currentUserNotFound() {

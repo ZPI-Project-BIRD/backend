@@ -19,15 +19,19 @@ import org.springframework.http.HttpStatus;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
-import zpi.project_bird.backend.downloader.DownloaderClient;
-
 @ExtendWith(MockitoExtension.class)
 class ProjectServiceTests {
     @Mock
     private ProjectRepository projects;
 
     @Mock
-    private DownloaderClient downloaderClient;
+    private ProcessingService processing;
+
+    @Mock
+    private ProcessingRepository processingRepository;
+
+    @Mock
+    private AnnotationRepository annotations;
 
     @Mock
     private TransactionTemplate transactions;
@@ -99,5 +103,15 @@ class ProjectServiceTests {
 
         assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
         verify(projects, never()).getDetections(projectId);
+    }
+
+    @Test
+    void doesNotExposeFeaturesForProjectOutsideOrganization() {
+        UUID organizationId = UUID.randomUUID();
+        UUID projectId = UUID.randomUUID();
+        when(projects.findById(organizationId, projectId)).thenReturn(Optional.empty());
+        var exception = assertThrows(ResponseStatusException.class, () -> projectService.getFeatures(organizationId, projectId));
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        verify(projects, never()).getFeatures(projectId);
     }
 }

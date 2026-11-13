@@ -6,6 +6,9 @@ import static zpi.project_bird.backend.jooq.public_.tables.Users.USERS;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.LocalDateTime;
+import static org.jooq.impl.DSL.field;
+import static org.jooq.impl.DSL.name;
 
 import org.jooq.DSLContext;
 import org.jooq.Record;
@@ -21,6 +24,36 @@ public class UserRepository {
     public UserRepository(DSLContext dsl) {
         this.dsl = dsl;
     }
+
+    public List<User> search(String search, int limit, int offset) {
+        return dsl.selectFrom(USERS).where(USERS.USERNAME.containsIgnoreCase(search)
+                .or(USERS.FRIENDLY_NAME.containsIgnoreCase(search)))
+            .orderBy(USERS.USERNAME, USERS.ID).limit(limit).offset(offset)
+            .fetch(row -> toUser(row, null));
+    }
+
+    public List<UsersRecord> lockAdministrators() {
+        return dsl.selectFrom(USERS).where(USERS.IS_ADMIN.isTrue()).orderBy(USERS.ID).forUpdate().fetch();
+    }
+
+    public Optional<UsersRecord> lock(UUID userId) {
+        return dsl.selectFrom(USERS).where(USERS.ID.eq(userId)).forUpdate().fetchOptional();
+    }
+
+    public void setBan(UUID userId, String reason) {
+        var version = field(name("auth_version"), Integer.class);
+        dsl.update(USERS).set(USERS.BANNED_AT, reason == null ? null : LocalDateTime.now())
+            .set(USERS.BAN_REASON, reason).set(version, version.plus(1))
+            .where(USERS.ID.eq(userId)).execute();
+    }
+
+    public Optional<SessionState> sessionState(String username) {
+        var version = field(name("auth_version"), Integer.class);
+        return dsl.select(USERS.BANNED_AT, version).from(USERS).where(USERS.USERNAME.eq(username))
+            .fetchOptional(row -> new SessionState(row.get(USERS.BANNED_AT) != null, row.get(version)));
+    }
+
+    public record SessionState(boolean banned, int version) {}
 
     public List<User> findAll(UUID organizationId) {
         return dsl.select(

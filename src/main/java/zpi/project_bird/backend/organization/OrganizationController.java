@@ -36,6 +36,41 @@ public class OrganizationController {
         this.userService = userService;
     }
 
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<Organization> findAll() {
+        return organizationService.findAll();
+    }
+
+    @PatchMapping("/{organizationId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Organization rename(@PathVariable UUID organizationId,
+            @Valid @RequestBody OrganizationRequest.Create request) {
+        return organizationService.rename(organizationId, request.name());
+    }
+
+    @DeleteMapping("/{organizationId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> delete(@PathVariable UUID organizationId) {
+        organizationService.delete(organizationId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{organizationId}/memberships")
+    @CanManageOrganization
+    public ResponseEntity<Membership> addMembership(@PathVariable UUID organizationId,
+            @Valid @RequestBody OrganizationRequest.AddMembership request, Authentication authentication) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(organizationService.addMembership(organizationId, request, authentication));
+    }
+
+    @PatchMapping("/{organizationId}/users/{username}/role")
+    @CanManageOrganization
+    public Membership updateRole(@PathVariable UUID organizationId, @PathVariable String username,
+            @Valid @RequestBody OrganizationRequest.UpdateRole request, Authentication authentication) {
+        return organizationService.updateRole(organizationId, username, request.membershipRole(), authentication);
+    }
+
     @GetMapping("/my")
     public List<Membership> findMyOrganizations(Authentication authentication) {
         return organizationService.findByUsername(authentication.getName());

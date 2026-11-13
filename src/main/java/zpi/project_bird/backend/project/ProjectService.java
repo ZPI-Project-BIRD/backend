@@ -10,21 +10,25 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
-import zpi.project_bird.backend.downloader.DownloaderClient;
-
 @Service
 public class ProjectService {
     private final ProjectRepository projects;
-    private final DownloaderClient downloaderClient;
+    private final ProcessingService processing;
+    private final ProcessingRepository processingRepository;
+    private final AnnotationRepository annotations;
     private final TransactionTemplate transactions;
 
     public ProjectService(
         ProjectRepository projects,
-        DownloaderClient downloaderClient,
+        ProcessingService processing,
+        ProcessingRepository processingRepository,
+        AnnotationRepository annotations,
         TransactionTemplate transactions
     ) {
         this.projects = projects;
-        this.downloaderClient = downloaderClient;
+        this.processing = processing;
+        this.processingRepository = processingRepository;
+        this.annotations = annotations;
         this.transactions = transactions;
     }
 
@@ -42,17 +46,34 @@ public class ProjectService {
     @Transactional(readOnly = true)
     public ProjectProgress getProgress(UUID organizationId, UUID projectId) {
         findById(organizationId, projectId);
-        return projects.getProgress(projectId);
+        return projects.getProgress(projectId).withProcessing(
+            processingRepository.discovery(projectId), processingRepository.jobStates(projectId));
     }
 
     @Transactional(readOnly = true)
     public List<FeatureDetections> getDetections(UUID organizationId, UUID projectId) {
         findById(organizationId, projectId);
-        return projects.getDetections(projectId);
+        var overrides = annotations.findAll(projectId);
+        var overriddenIds = overrides.stream().map(DetectionState::id).collect(java.util.stream.Collectors.toSet());
+        var groups = new java.util.TreeMap<String, List<FeatureDetections.Detection>>();
+        for (var feature : projects.getDetections(projectId)) {
+            for (var detection : feature.detections()) {
+                if (!overriddenIds.contains(detection.id())) {
+                    groups.computeIfAbsent(feature.featureId(), key -> new java.util.ArrayList<>()).add(detection);
+                }
+            }
+        }
+        for (var annotation : overrides) {
+            if (!annotation.deleted()) {
+                groups.computeIfAbsent(annotation.featureId(), key -> new java.util.ArrayList<>()).add(annotation.toDetection());
+            }
+        }
+        return groups.entrySet().stream().map(entry -> new FeatureDetections(entry.getKey(), entry.getValue())).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<Feature> getFeatures(UUID projectId) {
+    public List<Feature> getFeatures(UUID organizationId, UUID projectId) {
+        findById(organizationId, projectId);
         return projects.getFeatures(projectId);
     }
 
@@ -64,7 +85,7 @@ public class ProjectService {
     ) {
         Project project = Objects.requireNonNull(transactions.execute(status ->
             projects.create(organizationId, name, topLeft, bottomRight)));
-        downloaderClient.discoverFeatures(project.id());
+        processing.discover(organizationId, project.id(), false);
 
         return project;
     }

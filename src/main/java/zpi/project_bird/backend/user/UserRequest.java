@@ -27,4 +27,7 @@ public final class UserRequest {
     public record UpdatePassword(
             @NotBlank String newPassword) {
     }
+
+    public record Ban(@NotBlank @Size(max = 2000) String reason) {
+    }
 }

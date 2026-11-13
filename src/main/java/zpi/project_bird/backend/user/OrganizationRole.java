@@ -32,7 +32,7 @@ public enum OrganizationRole {
         return membershipRole.getLiteral();
     }
 
-    MembershipRole toMembershipRole() {
+    public MembershipRole toMembershipRole() {
         return membershipRole;
     }
 }

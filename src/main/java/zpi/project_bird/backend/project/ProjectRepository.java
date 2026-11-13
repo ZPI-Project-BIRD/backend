@@ -53,6 +53,11 @@ public class ProjectRepository {
             .fetchOptional(this::toProject);
     }
 
+    public Optional<Project> lock(UUID organizationId, UUID projectId) {
+        return dsl.selectFrom(PROJECTS).where(PROJECTS.ORGANIZATION_ID.eq(organizationId), PROJECTS.ID.eq(projectId))
+            .forUpdate().fetchOptional(this::toProject);
+    }
+
     public List<Feature> getFeatures(UUID projectId) {
         return dsl.select(FEATURES.fields())
             .from(FEATURES)

@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,9 +23,11 @@ import zpi.project_bird.backend.security.CanViewOrganization;
 @RequestMapping("/api/organizations/{organizationId}/projects")
 public class ProjectController {
     private final ProjectService projectService;
+    private final ProcessingService processing;
 
-    public ProjectController(ProjectService projectService) {
+    public ProjectController(ProjectService projectService, ProcessingService processing) {
         this.projectService = projectService;
+        this.processing = processing;
     }
 
     @GetMapping
@@ -67,7 +68,19 @@ public class ProjectController {
         @PathVariable UUID organizationId,
         @PathVariable UUID projectId
     ) {
-        return projectService.getFeatures(projectId);
+        return projectService.getFeatures(organizationId, projectId);
+    }
+
+    @PostMapping("/{projectId}/detections/retry")
+    @CanEditOrganization
+    public ProcessingService.RetryResult retryDetections(@PathVariable UUID organizationId, @PathVariable UUID projectId) {
+        return processing.retryDetections(organizationId, projectId);
+    }
+
+    @PostMapping("/{projectId}/discovery/retry")
+    @CanEditOrganization
+    public ProcessingRepository.DiscoveryStatus retryDiscovery(@PathVariable UUID organizationId, @PathVariable UUID projectId) {
+        return processing.discover(organizationId, projectId, true);
     }
 
     @PostMapping

@@ -2,8 +2,17 @@ package zpi.project_bird.backend.project;
 
 public record ProjectProgress(
     StageProgress featureDownloads,
-    StageProgress recognitionJobs
+    StageProgress recognitionJobs,
+    ProcessingRepository.DiscoveryStatus discovery,
+    ProcessingRepository.JobStates jobStates
 ) {
+    public ProjectProgress(StageProgress featureDownloads, StageProgress recognitionJobs) {
+        this(featureDownloads, recognitionJobs, null, null);
+    }
+
+    public ProjectProgress withProcessing(ProcessingRepository.DiscoveryStatus discovery, ProcessingRepository.JobStates jobStates) {
+        return new ProjectProgress(featureDownloads, recognitionJobs, discovery, jobStates);
+    }
     public static ProjectProgress fromCounts(
         int totalFeatures,
         int downloadedFeatures,
