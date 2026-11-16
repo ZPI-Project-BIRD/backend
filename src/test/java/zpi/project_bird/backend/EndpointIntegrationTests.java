@@ -212,6 +212,7 @@ class EndpointIntegrationTests {
         mvc.perform(get(foreign + "/features").with(user("viewer"))).andExpect(status().isNotFound());
         mvc.perform(as(patch(foreign + "/detections/" + DETECTION), "annotator").content(update(0))).andExpect(status().isNotFound());
         mvc.perform(as(post(foreign + "/detections/retry"), "editor")).andExpect(status().isNotFound());
+        mvc.perform(as(post(foreign + "/detections/rerun"), "editor")).andExpect(status().isNotFound());
         mvc.perform(as(post(foreign + "/discovery/retry"), "editor")).andExpect(status().isNotFound());
         verifyNoInteractions(downloader);
     }
@@ -230,6 +231,70 @@ class EndpointIntegrationTests {
             .andExpect(jsonPath("$[0].detections[0].version").value(1));
         mvc.perform(get(BASE + "/progress").with(user("viewer")))
             .andExpect(status().isOk()).andExpect(jsonPath("$.jobStates.pending").value(1));
+    }
+
+    @Test void detectionRerunRequiresEditorOwnerOrAdministrator() throws Exception {
+        mvc.perform(post(BASE + "/detections/rerun").with(csrf())).andExpect(status().isUnauthorized());
+        for (String username : new String[]{"viewer", "annotator", "free"}) {
+            mvc.perform(as(post(BASE + "/detections/rerun"), username)).andExpect(status().isForbidden());
+        }
+        for (String username : new String[]{"editor", "owner", "admin"}) {
+            dsl.execute("update geoportal.recognition_jobs set status = '2_FINISHED' where id = ?", JOB);
+            mvc.perform(as(post(BASE + "/detections/rerun"), username))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.requeuedJobs").value(1));
+        }
+    }
+
+    @Test void detectionRerunRequeuesCompletedAndFailedJobsAndPreservesReviewedAnnotations() throws Exception {
+        mvc.perform(as(patch(BASE + "/detections/" + DETECTION), "annotator").content(update(0))).andExpect(status().isOk());
+        mvc.perform(as(patch(BASE + "/detections/" + DETECTION + "/verification"), "annotator")
+            .content("{\"expectedVersion\":1,\"verified\":true}")).andExpect(status().isOk());
+        dsl.execute("insert into geoportal.project_features (project_id, feature_id) values (?, 'other-sheet')", PROJECT);
+        UUID failed = UUID.randomUUID();
+        UUID foreign = UUID.randomUUID();
+        dsl.execute("""
+            insert into geoportal.recognition_jobs (id, project_id, feature_id, status, finished_at, error)
+            values (?, ?, 'other-sheet', '3_FAILED', now(), 'Temporary failure'),
+                   (?, ?, 'other-sheet', '3_FAILED', now(), 'Foreign failure')
+            """, failed, PROJECT, foreign, OTHER_PROJECT);
+        dsl.execute("update geoportal.recognition_jobs set finished_at = now() where id = ?", JOB);
+        mvc.perform(as(post(BASE + "/detections/rerun"), "editor"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.requeuedJobs").value(2));
+        assertEquals(2, dsl.fetchOne("""
+            select count(*) as count from geoportal.recognition_jobs
+            where project_id = ? and status = '0_PENDING' and finished_at is null and error is null
+            """, PROJECT).get("count", Integer.class));
+        assertEquals("3_FAILED", dsl.fetchOne("select status::text as status from geoportal.recognition_jobs where id = ?", foreign).get("status", String.class));
+        assertEquals(1, count("geoportal.detections"));
+        assertEquals(1, count("geoportal.detection_annotations"));
+        assertEquals(2, count("geoportal.annotation_history"));
+        mvc.perform(as(post(BASE + "/detections/rerun"), "editor")).andExpect(status().isConflict());
+        // The worker replaces raw output when it starts; reviewed annotations survive that replacement.
+        dsl.execute("delete from geoportal.detections where recognition_job_id = ?", JOB);
+        mvc.perform(get(BASE + "/detections").with(user("viewer"))).andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].detections[0].id").value(DETECTION.toString()))
+            .andExpect(jsonPath("$[0].detections[0].verifiedBy").value("annotator"));
+        verifyNoInteractions(downloader);
+    }
+
+    @Test void detectionRerunRejectsPendingRunningOrDownloadingWork() throws Exception {
+        for (String status : new String[]{"0_PENDING", "1_STARTED"}) {
+            dsl.execute("update geoportal.recognition_jobs set status = ?::geoportal.recognition_job_status where id = ?", status, JOB);
+            mvc.perform(as(post(BASE + "/detections/rerun"), "editor")).andExpect(status().isConflict());
+            assertEquals(status, dsl.fetchOne("select status::text as status from geoportal.recognition_jobs where id = ?", JOB).get("status", String.class));
+        }
+        dsl.execute("update geoportal.recognition_jobs set status = '2_FINISHED' where id = ?", JOB);
+        dsl.execute("insert into geoportal.project_features (project_id, feature_id) values (?, 'other-sheet')", PROJECT);
+        dsl.execute("update geoportal.features set downloaded_at = null where id = 'other-sheet'");
+        mvc.perform(as(post(BASE + "/detections/rerun"), "editor")).andExpect(status().isConflict());
+    }
+
+    @Test void detectionRerunRejectsActiveDiscoveryAndProjectsWithoutJobs() throws Exception {
+        dsl.execute("insert into project_processing (project_id, discovery_status, locked_until) values (?, 'RUNNING', now() + interval '15 minutes')", PROJECT);
+        mvc.perform(as(post(BASE + "/detections/rerun"), "editor")).andExpect(status().isConflict());
+        dsl.execute("update project_processing set discovery_status = 'SUCCEEDED', locked_until = null where project_id = ?", PROJECT);
+        dsl.execute("delete from geoportal.recognition_jobs where project_id = ?", PROJECT);
+        mvc.perform(as(post(BASE + "/detections/rerun"), "editor")).andExpect(status().isConflict());
     }
 
     @Test void discoveryFailureCanBeRetriedAndSuccessfulDiscoveryCannotBeRepeated() throws Exception {

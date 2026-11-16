@@ -58,6 +58,27 @@ public class ProcessingService {
         return new RetryResult(processing.retryFailedJobs(projectId));
     }
 
+    @Transactional
+    public RetryResult rerunDetections(UUID organizationId, UUID projectId) {
+        lock(organizationId, projectId);
+        var discovery = processing.discovery(projectId);
+        if (discovery.status().equals("RUNNING") || discovery.status().equals("PENDING")) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Wait for feature discovery to finish before running detection again");
+        }
+        processing.lockJobs(projectId);
+        var jobs = processing.jobStates(projectId);
+        var progress = projects.getProgress(projectId);
+        if (jobs.pending() > 0 || jobs.running() > 0
+                || progress.featureDownloads().completed() < progress.featureDownloads().total()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Wait for current processing to finish before running detection again");
+        }
+        int requeued = processing.rerunJobs(projectId);
+        if (requeued == 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "There are no detection jobs to run again");
+        }
+        return new RetryResult(requeued);
+    }
+
     private void lock(UUID organizationId, UUID projectId) {
         projects.lock(organizationId, projectId).orElseThrow(() ->
             new ResponseStatusException(HttpStatus.NOT_FOUND, "Project was not found in this organization"));

@@ -41,6 +41,19 @@ public class ProcessingRepository {
             """, projectId);
     }
 
+    public void lockJobs(UUID projectId) {
+        // The worker claims jobs with FOR UPDATE SKIP LOCKED. Keep it from starting
+        // a job between the active-job check and the reset in the same transaction.
+        dsl.fetch("select id from geoportal.recognition_jobs where project_id = ? order by id for update", projectId);
+    }
+
+    public int rerunJobs(UUID projectId) {
+        return dsl.execute("""
+            update geoportal.recognition_jobs set status = '0_PENDING', started_at = now(), finished_at = null, error = null
+            where project_id = ? and status in ('2_FINISHED', '3_FAILED')
+            """, projectId);
+    }
+
     public JobStates jobStates(UUID projectId) {
         var row = dsl.fetchOne("""
             select count(*) filter (where status = '0_PENDING') as pending,

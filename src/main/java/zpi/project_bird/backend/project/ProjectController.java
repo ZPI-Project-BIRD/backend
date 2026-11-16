@@ -83,6 +83,12 @@ public class ProjectController {
         return processing.discover(organizationId, projectId, true);
     }
 
+    @PostMapping("/{projectId}/detections/rerun")
+    @CanEditOrganization
+    public ProcessingService.RetryResult rerunDetections(@PathVariable UUID organizationId, @PathVariable UUID projectId) {
+        return processing.rerunDetections(organizationId, projectId);
+    }
+
     @PostMapping
     @CanEditOrganization
     public ResponseEntity<Project> create(
