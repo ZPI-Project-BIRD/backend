@@ -47,7 +47,8 @@ public class ProjectService {
     public ProjectProgress getProgress(UUID organizationId, UUID projectId) {
         findById(organizationId, projectId);
         return projects.getProgress(projectId).withProcessing(
-            processingRepository.discovery(projectId), processingRepository.jobStates(projectId));
+            processingRepository.discovery(projectId), processingRepository.jobStates(projectId),
+            processingRepository.queuePosition(projectId));
     }
 
     @Transactional(readOnly = true)

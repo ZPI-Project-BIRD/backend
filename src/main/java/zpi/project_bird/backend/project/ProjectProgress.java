@@ -4,14 +4,19 @@ public record ProjectProgress(
     StageProgress featureDownloads,
     StageProgress recognitionJobs,
     ProcessingRepository.DiscoveryStatus discovery,
-    ProcessingRepository.JobStates jobStates
+    ProcessingRepository.JobStates jobStates,
+    ProcessingRepository.QueuePosition queue
 ) {
     public ProjectProgress(StageProgress featureDownloads, StageProgress recognitionJobs) {
-        this(featureDownloads, recognitionJobs, null, null);
+        this(featureDownloads, recognitionJobs, null, null, null);
     }
 
-    public ProjectProgress withProcessing(ProcessingRepository.DiscoveryStatus discovery, ProcessingRepository.JobStates jobStates) {
-        return new ProjectProgress(featureDownloads, recognitionJobs, discovery, jobStates);
+    public ProjectProgress withProcessing(
+        ProcessingRepository.DiscoveryStatus discovery,
+        ProcessingRepository.JobStates jobStates,
+        ProcessingRepository.QueuePosition queue
+    ) {
+        return new ProjectProgress(featureDownloads, recognitionJobs, discovery, jobStates, queue);
     }
     public static ProjectProgress fromCounts(
         int totalFeatures,
