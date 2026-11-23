@@ -66,6 +66,29 @@ public class ProcessingRepository {
             row.get("finished", Integer.class), row.get("failed", Integer.class));
     }
 
+    public QueuePosition queuePosition(UUID projectId) {
+        var row = dsl.fetchOne("""
+            with queue as (
+                select j.project_id, row_number() over (order by j.created_at asc, j.id asc) as position
+                from geoportal.recognition_jobs as j
+                join geoportal.features as f on f.id = j.feature_id
+                where f.downloaded_at is not null
+                  and (
+                    j.status in ('0_PENDING', '3_FAILED')
+                    or (j.status = '1_STARTED' and j.started_at < now() - interval '30 minutes')
+                  )
+            )
+            select min(position) filter (where project_id = ?) as next_position,
+                   max(position) filter (where project_id = ?) as last_position,
+                   count(*) filter (where project_id = ?) as queued,
+                   count(*) as total
+            from queue
+            """, projectId, projectId, projectId);
+        return new QueuePosition(row.get("next_position", Integer.class), row.get("last_position", Integer.class),
+            row.get("queued", Integer.class), row.get("total", Integer.class));
+    }
+
     public record DiscoveryStatus(String status, int attempts, String lastError, OffsetDateTime lockedUntil) {}
     public record JobStates(int pending, int running, int finished, int failed) {}
+    public record QueuePosition(Integer nextPosition, Integer lastPosition, int queued, int total) {}
 }

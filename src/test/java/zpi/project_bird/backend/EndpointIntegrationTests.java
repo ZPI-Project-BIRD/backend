@@ -230,7 +230,8 @@ class EndpointIntegrationTests {
             .andExpect(status().isOk()).andExpect(jsonPath("$[0].detections[0].id").value(DETECTION.toString()))
             .andExpect(jsonPath("$[0].detections[0].version").value(1));
         mvc.perform(get(BASE + "/progress").with(user("viewer")))
-            .andExpect(status().isOk()).andExpect(jsonPath("$.jobStates.pending").value(1));
+            .andExpect(status().isOk()).andExpect(jsonPath("$.jobStates.pending").value(1))
+            .andExpect(jsonPath("$.queue.nextPosition").value(1)).andExpect(jsonPath("$.queue.queued").value(1));
     }
 
     @Test void detectionRerunRequiresEditorOwnerOrAdministrator() throws Exception {
