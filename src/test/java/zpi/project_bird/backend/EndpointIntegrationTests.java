@@ -177,6 +177,28 @@ class EndpointIntegrationTests {
             .andExpect(status().isBadRequest());
     }
 
+    @Test void typedDetectionsCanBeEditedVerifiedReadAndAudited() throws Exception {
+        String route = BASE + "/detections/" + DETECTION;
+        for (String type : java.util.List.of("building", "forest", "water", "road")) {
+            seed();
+            String bounds = type.equals("road")
+                ? "{\"type\":\"road\",\"coordinates\":[[[0,0],[5,10]],[[20,0],[20,10]]],\"width_m\":[6.5,null]}"
+                : "{\"type\":\"" + type + "\",\"coordinates\":" + BOUNDS + "}";
+            dsl.execute("update geoportal.detections set bounds = ?::jsonb where id = ?", bounds, DETECTION);
+            mvc.perform(as(patch(route + "/verification"), "annotator").content("{\"expectedVersion\":0,\"verified\":true}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.bounds.type").value(type));
+            mvc.perform(as(patch(route), "annotator").content("{\"expectedVersion\":1,\"bounds\":" + bounds + "}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(2))
+                .andExpect(jsonPath("$.verifiedBy").isEmpty()).andExpect(jsonPath("$.bounds.type").value(type));
+            var result = mvc.perform(get(BASE + "/detections").with(user("viewer")))
+                .andExpect(status().isOk()).andReturn();
+            assertEquals(json.readTree(bounds), json.readTree(result.getResponse().getContentAsString()).get(0).get("detections").get(0).get("bounds"));
+            var history = mvc.perform(get(BASE + "/annotation-history").with(user("owner")))
+                .andExpect(status().isOk()).andReturn();
+            assertEquals(json.readTree(bounds), json.readTree(history.getResponse().getContentAsString()).get(0).get("after").get("bounds"));
+        }
+    }
+
     @Test void concurrentCorrectionsCannotOverwriteEachOther() throws Exception {
         var ready = new java.util.concurrent.CountDownLatch(2);
         var start = new java.util.concurrent.CountDownLatch(1);

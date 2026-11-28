@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.databind.ObjectMapper;
-import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.core.JacksonException;
 
 @Service
@@ -67,7 +67,7 @@ public class AnnotationService {
         }
         if (request.verified()) {
             try {
-                validateBounds(json.readValue(before.bounds(), new TypeReference<List<List<List<List<Double>>>>>() {}));
+                validateBounds(json.readTree(before.bounds()));
             } catch (JacksonException exception) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Detection geometry must be corrected before verification");
             }
@@ -129,6 +129,62 @@ public class AnnotationService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "Bounds must contain valid polygons with closed rings, finite [easting, northing] pairs, and at most 100000 points");
         }
+    }
+
+    static void validateBounds(JsonNode bounds) {
+        try {
+            if (bounds == null || bounds.isNull()) throw new IllegalArgumentException();
+            boolean legacy = bounds.isArray();
+            String type = legacy ? "building" : bounds.path("type").asText();
+            JsonNode coordinates = legacy ? bounds : bounds.get("coordinates");
+            requireArray(coordinates, 1, 10000);
+            if (!List.of("building", "forest", "water", "road").contains(type)) throw new IllegalArgumentException();
+            int[] pointCount = {0};
+            if (type.equals("road")) {
+                JsonNode widths = bounds.get("width_m");
+                requireArray(widths, coordinates.size(), coordinates.size());
+                for (int i = 0; i < coordinates.size(); i++) {
+                    var points = readLine(coordinates.get(i), 2, pointCount);
+                    var line = GEOMETRY.createLineString(points.stream().map(point -> new Coordinate(point.get(0), point.get(1))).toArray(Coordinate[]::new));
+                    if (line.isEmpty() || line.getLength() <= 0 || !line.isValid()) throw new IllegalArgumentException();
+                    var width = widths.get(i);
+                    if (!width.isNull() && (!width.isNumber() || !Double.isFinite(width.doubleValue()) || width.doubleValue() <= 0)) {
+                        throw new IllegalArgumentException();
+                    }
+                }
+            } else {
+                var polygons = new ArrayList<List<List<List<Double>>>>();
+                for (var polygon : coordinates) {
+                    requireArray(polygon, 1, 25000);
+                    var rings = new ArrayList<List<List<Double>>>();
+                    for (var ring : polygon) rings.add(readLine(ring, 4, pointCount));
+                    polygons.add(rings);
+                }
+                validateBounds(polygons);
+            }
+        } catch (IllegalArgumentException | NullPointerException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "Bounds must contain building, forest or water polygons with valid closed rings, or road lines with at least two points and matching positive or null width_m values; maximum 10000 shapes and 100000 finite coordinate pairs");
+        }
+    }
+
+    private static void requireArray(JsonNode value, int min, int max) {
+        if (value == null || !value.isArray() || value.size() < min || value.size() > max) throw new IllegalArgumentException();
+    }
+
+    private static List<List<Double>> readLine(JsonNode line, int min, int[] pointCount) {
+        requireArray(line, min, 100000);
+        pointCount[0] += line.size();
+        if (pointCount[0] > 100000) throw new IllegalArgumentException();
+        var points = new ArrayList<List<Double>>();
+        for (var point : line) {
+            requireArray(point, 2, 2);
+            if (!point.get(0).isNumber() || !point.get(1).isNumber()) throw new IllegalArgumentException();
+            double x = point.get(0).doubleValue(), y = point.get(1).doubleValue();
+            if (!Double.isFinite(x) || !Double.isFinite(y)) throw new IllegalArgumentException();
+            points.add(List.of(x, y));
+        }
+        return points;
     }
 
     private static ResponseStatusException notFound() {
